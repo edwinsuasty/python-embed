@@ -6,15 +6,26 @@
 <title>Python embebido (Pyodide)</title>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
 <style>
-  :root{color-scheme:dark;--bg:#0b0d11;--panel:#141820;--text:#e5e7eb;--muted:#9aa4b2;--border:#232839;--acc:#3b82f6}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px system-ui,Segoe UI,Roboto,Arial}
-  .wrap{padding:10px}
-  .panel{border:1px solid var(--border);background:var(--panel);border-radius:12px;max-width:1200px;margin:0 auto;padding:10px}
-  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  textarea{flex:1 1 420px;min-height:140px;border:1px solid var(--border);background:#0d1017;color:var(--text);border-radius:10px;padding:8px}
-  button{border:1px solid var(--border);background:#0d1017;color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer}
-  pre{white-space:pre-wrap;border:1px dashed var(--border);border-radius:10px;padding:10px;background:#0d1017;min-height:120px}
-  small{color:var(--muted)}
+:root{
+  color-scheme:dark;
+  --bg:#0b0d11;--panel:#141820;--text:#e5e7eb;--muted:#9aa4b2;--border:#232839;
+  --acc:#3b82f6;--err:#f87171
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font:14px system-ui,Segoe UI,Roboto,Arial}
+.wrap{padding:10px}
+.panel{border:1px solid var(--border);background:var(--panel);
+  border-radius:12px;max-width:1200px;margin:0 auto;padding:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+textarea{flex:1 1 420px;min-height:140px;border:1px solid var(--border);
+  background:#0d1017;color:var(--text);border-radius:10px;padding:8px;font-family:monospace}
+button{border:1px solid var(--border);background:#0d1017;color:var(--text);
+  border-radius:10px;padding:8px 12px;cursor:pointer;transition:.2s}
+button:hover{background:var(--acc);color:white}
+pre{white-space:pre-wrap;border:1px dashed var(--border);
+  border-radius:10px;padding:10px;background:#0d1017;min-height:120px;
+  font-family:monospace;font-size:13px;overflow:auto}
+small{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -31,43 +42,57 @@
     <pre id="out"></pre>
   </div>
 </div>
+
 <script>
-  const $state = document.getElementById('state'), $code = document.getElementById('code'), $out = document.getElementById('out');
-  const q=(n,d='')=>{const m=location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));return m?decodeURIComponent(m[1].replace(/\+/g,' ')):d};
-  const auto = /^(1|true|yes)$/i.test(q('autoeval','1')); const initial = q('code', "print('Hola desde Pyodide')\n");
-  $code.value = initial;
-  let pyodide;
-  (async () => {
-    try {
-      pyodide = await loadPyodide();
-      $state.textContent = 'Pyodide listo.';
-      if (auto) run();
-    } catch(e){ $state.textContent='Error cargando Pyodide'; $out.textContent=String(e); }
-  })();
-  async function run(){
-    if(!pyodide){ $state.textContent='Cargando runtime…'; return; }
-    $state.textContent='Ejecutando…';
-    try{
-      // capturar stdout/err
-      await pyodide.runPythonAsync(`
+const $state=document.getElementById('state'),
+      $code=document.getElementById('code'),
+      $out=document.getElementById('out');
+const q=(n,d='')=>{
+  const m=location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));
+  return m?decodeURIComponent(m[1].replace(/\+/g,' ')):d;
+};
+const auto=/^(1|true|yes)$/i.test(q('autoeval','1'));
+const initial=q('code',"print('Hola desde Pyodide')\n");
+$code.value=initial;
+let pyodide;
+
+(async()=>{
+  try{
+    pyodide=await loadPyodide();
+    $state.textContent='Pyodide listo.';
+    if(auto) run();
+  }catch(e){
+    $state.textContent='Error al cargar Pyodide';
+    $out.textContent=String(e);
+  }
+})();
+
+async function run(){
+  if(!pyodide){$state.textContent='Cargando runtime…';return;}
+  $state.textContent='Ejecutando…';
+  $out.textContent='';
+  try{
+    await pyodide.runPythonAsync(`
 import sys, io
 _stdout, _stderr = sys.stdout, sys.stderr
 buf_out, buf_err = io.StringIO(), io.StringIO()
 sys.stdout, sys.stderr = buf_out, buf_err
 `);
-      await pyodide.runPythonAsync($code.value);
-      const out = pyodide.runPython('buf_out.getvalue()'); const err = pyodide.runPython('buf_err.getvalue()');
-      $out.textContent = (out||'') + (err?("\n[stderr]\n"+err):'');
-      $state.textContent='Listo.';
-    }catch(e){ $state.textContent='Error en ejecución'; $out.textContent=String(e); }
-    finally{
-      await pyodide.runPythonAsync(`
-sys.stdout, sys.stderr = _stdout, _stderr
-`);
-    }
+    await pyodide.runPythonAsync($code.value);
+    const out=pyodide.runPython('buf_out.getvalue()'),
+          err=pyodide.runPython('buf_err.getvalue()');
+    $out.textContent=(out||'')+(err?("\n[stderr]\n"+err):'');
+    $state.textContent='Listo.';
+  }catch(e){
+    $state.textContent='Error en ejecución';
+    $out.textContent='⚠️ '+String(e);
+  }finally{
+    await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
   }
-  document.getElementById('run').onclick = run;
-  document.getElementById('clear').onclick = () => { $out.textContent=''; };
+}
+
+document.getElementById('run').onclick=run;
+document.getElementById('clear').onclick=()=>{$out.textContent='';};
 </script>
 </body>
 </html>
