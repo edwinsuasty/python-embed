@@ -78,7 +78,6 @@ small{color:var(--muted)}
       <div style="display:flex;flex-direction:column;gap:8px">
         <button id="run">Ejecutar</button>
         <button id="clear">Limpiar</button>
-        <button id="loadPandas">Cargar pandas</button>
       </div>
     </div>
     <small id="state">Cargando Pyodide…</small>
@@ -278,7 +277,6 @@ async function preloadPandas() {
 // Asignación de eventos a los botones de la página
 document.getElementById('run').onclick        = run;
 document.getElementById('clear').onclick      = () => { $out.textContent = ''; };
-document.getElementById('loadPandas').onclick = preloadPandas;
 </script>
 </body>
 </html>
