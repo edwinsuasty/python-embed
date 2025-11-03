@@ -91,6 +91,56 @@ sys.stdout, sys.stderr = buf_out, buf_err
   }
 }
 
+let pyodide;
+
+// ... aquí va tu código actual de carga de Pyodide ...
+
+async function preloadPandas() {
+  if (!pyodide) {
+    $state.textContent = "Pyodide aún no está listo…";
+    return;
+  }
+  try {
+    $state.textContent = "Cargando pandas (y dependencias)…";
+    // Cargar pandas, numpy, etc.
+    await pyodide.loadPackage(["numpy", "pandas"]);
+    $state.textContent = "pandas listo.";
+    $out.textContent = "✅ Librerías cargadas: numpy, pandas";
+  } catch (e) {
+    $state.textContent = "Error cargando pandas";
+    $out.textContent = "⚠️ " + String(e);
+  }
+}
+
+// Ejecutar código enviado desde Flash
+async function runPythonFromFlash(code) {
+  if (!pyodide) {
+    $state.textContent = "Pyodide aún no está listo…";
+    return;
+  }
+  $state.textContent = "Ejecutando código…";
+  $out.textContent = "";
+
+  try {
+    await pyodide.runPythonAsync(`
+import sys, io
+_stdout, _stderr = sys.stdout, sys.stderr
+buf_out, buf_err = io.StringIO(), io.StringIO()
+sys.stdout, sys.stderr = buf_out, buf_err
+`);
+    await pyodide.runPythonAsync(code);
+    const out = pyodide.runPython("buf_out.getvalue()");
+    const err = pyodide.runPython("buf_err.getvalue()");
+    $out.textContent = (out || "") + (err ? ("\n[stderr]\n" + err) : "");
+    $state.textContent = "Listo.";
+  } catch (e) {
+    $state.textContent = "Error en ejecución";
+    $out.textContent = "⚠️ " + String(e);
+  } finally {
+    await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
+  }
+}
+
 document.getElementById('run').onclick=run;
 document.getElementById('clear').onclick=()=>{$out.textContent='';};
 </script>
