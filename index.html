@@ -80,8 +80,27 @@ async function run(){
     $state.textContent = 'Pyodide aún no está listo…';
     return;
   }
-  $state.textContent = 'Ejecutando…';
-  $out.textContent   = '';
+
+  const codeText = $code.value;
+
+  // Si el código usa pandas, lo cargamos primero
+  if (codeText.indexOf("import pandas") !== -1 ||
+      codeText.indexOf("from pandas")  !== -1) {
+    try {
+      $state.textContent = 'Cargando pandas (y dependencias)…';
+      await pyodide.loadPackage(['pandas']);
+      $state.textContent = 'pandas listo. Ejecutando…';
+    } catch (e) {
+      $state.textContent = 'Error cargando pandas';
+      $out.textContent   = '⚠️ ' + String(e);
+      return; // No seguimos si no se pudo cargar
+    }
+  } else {
+    $state.textContent = 'Ejecutando…';
+  }
+
+  $out.textContent = '';
+
   try {
     await pyodide.runPythonAsync(`
 import sys, io
@@ -89,7 +108,7 @@ _stdout, _stderr = sys.stdout, sys.stderr
 buf_out, buf_err = io.StringIO(), io.StringIO()
 sys.stdout, sys.stderr = buf_out, buf_err
 `);
-    await pyodide.runPythonAsync($code.value);
+    await pyodide.runPythonAsync(codeText);
     const out = pyodide.runPython('buf_out.getvalue()');
     const err = pyodide.runPython('buf_err.getvalue()');
     $out.textContent = (out || '') + (err ? ("\n[stderr]\n" + err) : '');
