@@ -36,7 +36,7 @@ small{color:var(--muted)}
       <div style="display:flex;flex-direction:column;gap:8px">
         <button id="run">Ejecutar</button>
         <button id="clear">Limpiar</button>
-        <button id="loadPandas">Cargar pandas</button> <!-- 👈 nuevo -->
+        <button id="loadPandas">Cargar pandas</button> <!-- botón nuevo -->
       </div>
     </div>
 
@@ -55,11 +55,11 @@ const q = (n,d='')=>{
   return m ? decodeURIComponent(m[1].replace(/\+/g,' ')) : d;
 };
 
+// si no quieres auto-ejecución puedes poner const auto = false;
 const auto    = /^(1|true|yes)$/i.test(q('autoeval','1'));
 const initial = q('code',"print('Hola desde Pyodide')\n");
 $code.value   = initial;
 
-// ✅ UNA sola variable global
 let pyodide = null;
 
 // Inicializar Pyodide
@@ -103,6 +103,24 @@ sys.stdout, sys.stderr = buf_out, buf_err
   }
 }
 
+// 👉 Función para cargar pandas (y sus dependencias) desde el botón o desde Flash
+async function preloadPandas() {
+  if (!pyodide) {
+    $state.textContent = 'Pyodide aún no está listo…';
+    return;
+  }
+  try {
+    $state.textContent = 'Cargando pandas (y dependencias)…';
+    // pandas ya arrastra numpy como dependencia; puedes dejar solo 'pandas'
+    await pyodide.loadPackage(['pandas']);
+    $state.textContent = 'pandas listo.';
+    $out.textContent   = '✅ Librería cargada: pandas';
+  } catch (e) {
+    $state.textContent = 'Error cargando pandas';
+    $out.textContent   = '⚠️ ' + String(e);
+  }
+}
+
 // 👇 Función para que Animate ejecute código Python
 async function runPythonFromFlash(code) {
   if (!pyodide) {
@@ -124,18 +142,17 @@ sys.stdout, sys.stderr = buf_out, buf_err
     $out.textContent = (out || "") + (err ? ("\n[stderr]\n" + err) : "");
     $state.textContent = "Listo.";
   } catch (e) {
-    $state.textContent = "Error en ejecución";
-    $out.textContent   = "⚠️ " + String(e);
+    $state.textContent   = "Error en ejecución";
+    $out.textContent     = "⚠️ " + String(e);
   } finally {
     await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
   }
 }
 
 // Botones de la página (no los de Animate)
-document.getElementById('run').onclick   = run;
-document.getElementById('clear').onclick = () => { $out.textContent = ''; };
-document.getElementById('loadPandas').onclick = preloadPandas; // 👈 nuevo
-
+document.getElementById('run').onclick        = run;
+document.getElementById('clear').onclick      = () => { $out.textContent = ''; };
+document.getElementById('loadPandas').onclick = preloadPandas;
 </script>
 </body>
 </html>
