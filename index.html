@@ -11,20 +11,62 @@
   --bg:#0b0d11;--panel:#141820;--text:#e5e7eb;--muted:#9aa4b2;--border:#232839;
   --acc:#3b82f6;--err:#f87171
 }
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
-  font:14px system-ui,Segoe UI,Roboto,Arial}
+html,body{
+  margin:0;
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font:14px system-ui,Segoe UI,Roboto,Arial
+}
 .wrap{padding:10px}
-.panel{border:1px solid var(--border);background:var(--panel);
-  border-radius:12px;max-width:1200px;margin:0 auto;padding:10px}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-textarea{flex:1 1 420px;min-height:140px;border:1px solid var(--border);
-  background:#0d1017;color:var(--text);border-radius:10px;padding:8px;font-family:monospace}
-button{border:1px solid var(--border);background:#0d1017;color:var(--text);
-  border-radius:10px;padding:8px 12px;cursor:pointer;transition:.2s}
-button:hover{background:var(--acc);color:white}
-pre{white-space:pre-wrap;border:1px dashed var(--border);
-  border-radius:10px;padding:10px;background:#0d1017;min-height:120px;
-  font-family:monospace;font-size:13px;overflow:auto}
+.panel{
+  border:1px solid var(--border);
+  background:var(--panel);
+  border-radius:12px;
+  max-width:1200px;
+  margin:0 auto;
+  padding:10px
+}
+.row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:8px
+}
+textarea{
+  flex:1 1 420px;
+  min-height:140px;
+  border:1px solid var(--border);
+  background:#0d1017;
+  color:var(--text);
+  border-radius:10px;
+  padding:8px;
+  font-family:monospace
+}
+button{
+  border:1px solid var(--border);
+  background:#0d1017;
+  color:var(--text);
+  border-radius:10px;
+  padding:8px 12px;
+  cursor:pointer;
+  transition:.2s
+}
+button:hover{
+  background:var(--acc);
+  color:white
+}
+pre{
+  white-space:pre-wrap;
+  border:1px dashed var(--border);
+  border-radius:10px;
+  padding:10px;
+  background:#0d1017;
+  min-height:120px;
+  font-family:monospace;
+  font-size:13px;
+  overflow:auto
+}
 small{color:var(--muted)}
 </style>
 </head>
@@ -39,7 +81,6 @@ small{color:var(--muted)}
         <button id="loadPandas">Cargar pandas</button>
       </div>
     </div>
-
     <small id="state">Cargando Pyodide…</small>
     <pre id="out"></pre>
   </div>
@@ -50,6 +91,7 @@ const $state = document.getElementById('state'),
       $code  = document.getElementById('code'),
       $out   = document.getElementById('out');
 
+// Leer parámetros de la URL (?code=..., ?autoeval=...)
 const q = (n,d='')=>{
   const m = location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));
   return m ? decodeURIComponent(m[1].replace(/\+/g,' ')) : d;
@@ -59,7 +101,74 @@ const auto    = /^(1|true|yes)$/i.test(q('autoeval','1'));
 const initial = q('code',"print('Hola desde Pyodide')\n");
 $code.value   = initial;
 
+// Pyodide global
 let pyodide = null;
+
+// Paquetes ya cargados para no repetir descargas
+const loadedPackages = new Set();
+
+// Reglas: qué paquetes cargar según el código
+const PACKAGE_RULES = [
+  {
+    // numpy
+    test: /(import\s+numpy|from\s+numpy)/,
+    packages: ['numpy']
+  },
+  {
+    // pandas
+    test: /(import\s+pandas|from\s+pandas)/,
+    packages: ['pandas']   // numpy viene como dependencia
+  },
+  {
+    // matplotlib
+    test: /(import\s+matplotlib|from\s+matplotlib|import\s+pyplot|from\s+matplotlib\.pyplot)/,
+    packages: ['matplotlib']
+  },
+  {
+    // scikit-learn
+    test: /(import\s+sklearn|from\s+sklearn)/,
+    packages: ['scikit-learn']
+  },
+  {
+    // scipy (por si algún ejemplo futuro lo usa)
+    test: /(import\s+scipy|from\s+scipy)/,
+    packages: ['scipy']
+  }
+];
+
+// Dado el texto de código, determina y carga los paquetes necesarios
+async function ensurePackagesForCode(codeText) {
+  if (!pyodide) return;
+
+  const needed = new Set();
+
+  for (const rule of PACKAGE_RULES) {
+    if (rule.test.test(codeText)) {
+      for (const pkg of rule.packages) {
+        if (!loadedPackages.has(pkg)) {
+          needed.add(pkg);
+        }
+      }
+    }
+  }
+
+  if (needed.size === 0) {
+    return; // no hay nada que cargar
+  }
+
+  const toLoad = Array.from(needed);
+
+  try {
+    $state.textContent = 'Cargando paquetes: ' + toLoad.join(', ') + ' …';
+    await pyodide.loadPackage(toLoad);
+    toLoad.forEach(p => loadedPackages.add(p));
+    $state.textContent = 'Paquetes listos: ' + toLoad.join(', ');
+  } catch (e) {
+    $state.textContent = 'Error cargando paquetes';
+    $out.textContent   = '⚠️ ' + String(e);
+    throw e;
+  }
+}
 
 // Inicializar Pyodide
 (async () => {
@@ -74,7 +183,7 @@ let pyodide = null;
   }
 })();
 
-// Ejecutar el código que está en el textarea
+// Ejecutar el código que está en el textarea (botón "Ejecutar" o autoeval)
 async function run(){
   if (!pyodide) {
     $state.textContent = 'Pyodide aún no está listo…';
@@ -83,23 +192,16 @@ async function run(){
 
   const codeText = $code.value;
 
-  // Si el código usa pandas, lo cargamos primero
-  if (codeText.indexOf("import pandas") !== -1 ||
-      codeText.indexOf("from pandas")  !== -1) {
-    try {
-      $state.textContent = 'Cargando pandas (y dependencias)…';
-      await pyodide.loadPackage(['pandas']);
-      $state.textContent = 'pandas listo. Ejecutando…';
-    } catch (e) {
-      $state.textContent = 'Error cargando pandas';
-      $out.textContent   = '⚠️ ' + String(e);
-      return; // No seguimos si no se pudo cargar
-    }
-  } else {
-    $state.textContent = 'Ejecutando…';
+  // 1) Cargar automáticamente los paquetes necesarios
+  try {
+    await ensurePackagesForCode(codeText);
+  } catch (e) {
+    return; // falló la carga de paquetes
   }
 
-  $out.textContent = '';
+  // 2) Ejecutar el código
+  $state.textContent = 'Ejecutando…';
+  $out.textContent   = '';
 
   try {
     await pyodide.runPythonAsync(`
@@ -111,7 +213,7 @@ sys.stdout, sys.stderr = buf_out, buf_err
     await pyodide.runPythonAsync(codeText);
     const out = pyodide.runPython('buf_out.getvalue()');
     const err = pyodide.runPython('buf_err.getvalue()');
-    $out.textContent = (out || '') + (err ? ("\n[stderr]\n" + err) : '');
+    $out.textContent = (out || '') + (err ? ("\\n[stderr]\\n" + err) : '');
     $state.textContent = 'Listo.';
   } catch (e) {
     $state.textContent = 'Error en ejecución';
@@ -121,31 +223,23 @@ sys.stdout, sys.stderr = buf_out, buf_err
   }
 }
 
-// 👉 Aquí está la función que faltaba
-async function preloadPandas() {
-  if (!pyodide) {
-    $state.textContent = 'Pyodide aún no está listo…';
-    return;
-  }
-  try {
-    $state.textContent = 'Cargando pandas (y dependencias)…';
-    await pyodide.loadPackage(['pandas']);   // pandas ya arrastra numpy
-    $state.textContent = 'pandas listo.';
-    $out.textContent   = '✅ Librería cargada: pandas';
-  } catch (e) {
-    $state.textContent = 'Error cargando pandas';
-    $out.textContent   = '⚠️ ' + String(e);
-  }
-}
-
-// Para ejecutar código desde Flash (si lo necesitas)
+// Función opcional para que Animate ejecute código directamente
 async function runPythonFromFlash(code) {
   if (!pyodide) {
     $state.textContent = 'Pyodide aún no está listo…';
     return;
   }
+
+  // Cargar paquetes necesarios según el código
+  try {
+    await ensurePackagesForCode(code);
+  } catch (e) {
+    return;
+  }
+
   $state.textContent = 'Ejecutando código…';
   $out.textContent   = '';
+
   try {
     await pyodide.runPythonAsync(`
 import sys, io
@@ -156,7 +250,7 @@ sys.stdout, sys.stderr = buf_out, buf_err
     await pyodide.runPythonAsync(code);
     const out = pyodide.runPython("buf_out.getvalue()");
     const err = pyodide.runPython("buf_err.getvalue()");
-    $out.textContent = (out || "") + (err ? ("\n[stderr]\n" + err) : "");
+    $out.textContent = (out || "") + (err ? ("\\n[stderr]\\n" + err) : "");
     $state.textContent = "Listo.";
   } catch (e) {
     $state.textContent = "Error en ejecución";
@@ -166,7 +260,22 @@ sys.stdout, sys.stderr = buf_out, buf_err
   }
 }
 
-// Botones de la página
+// Botón específico para precargar solo pandas
+async function preloadPandas() {
+  if (!pyodide) {
+    $state.textContent = 'Pyodide aún no está listo…';
+    return;
+  }
+  try {
+    // reutilizamos el mismo mecanismo de detección
+    await ensurePackagesForCode("import pandas");
+    $out.textContent = '✅ Librería cargada: pandas';
+  } catch (e) {
+    // ensurePackagesForCode ya muestra el error
+  }
+}
+
+// Asignación de eventos a los botones de la página
 document.getElementById('run').onclick        = run;
 document.getElementById('clear').onclick      = () => { $out.textContent = ''; };
 document.getElementById('loadPandas').onclick = preloadPandas;
