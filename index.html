@@ -56,8 +56,7 @@ button:hover{
   background:var(--acc);
   color:white
 }
-pre{
-  white-space:pre-wrap;
+#out{
   border:1px dashed var(--border);
   border-radius:10px;
   padding:10px;
@@ -65,7 +64,8 @@ pre{
   min-height:120px;
   font-family:monospace;
   font-size:13px;
-  overflow:auto
+  overflow:auto;
+  white-space:pre-wrap; /* conserva saltos de línea para texto normal */
 }
 small{color:var(--muted)}
 </style>
@@ -81,7 +81,7 @@ small{color:var(--muted)}
       </div>
     </div>
     <small id="state">Cargando Pyodide…</small>
-    <pre id="out"></pre>
+    <div id="out"></div>
   </div>
 </div>
 
@@ -89,6 +89,11 @@ small{color:var(--muted)}
 const $state = document.getElementById('state'),
       $code  = document.getElementById('code'),
       $out   = document.getElementById('out');
+
+// Función de ayuda: siempre usar innerHTML
+function setOutput(html) {
+  $out.innerHTML = html;
+}
 
 // Leer parámetros de la URL (?code=..., ?autoeval=...)
 const q = (n,d='')=>{
@@ -164,7 +169,7 @@ async function ensurePackagesForCode(codeText) {
     $state.textContent = 'Paquetes listos: ' + toLoad.join(', ');
   } catch (e) {
     $state.textContent = 'Error cargando paquetes';
-    $out.textContent   = '⚠️ ' + String(e);
+    setOutput('⚠️ ' + String(e));
     throw e;
   }
 }
@@ -178,7 +183,7 @@ async function ensurePackagesForCode(codeText) {
     if (auto) run();
   } catch (e) {
     $state.textContent = 'Error al cargar Pyodide';
-    $out.textContent   = String(e);
+    setOutput(String(e));
   }
 })();
 
@@ -200,7 +205,7 @@ async function run(){
 
   // 2) Ejecutar el código
   $state.textContent = 'Ejecutando…';
-  $out.textContent   = '';
+  setOutput('');
 
   try {
     await pyodide.runPythonAsync(`
@@ -212,11 +217,11 @@ sys.stdout, sys.stderr = buf_out, buf_err
     await pyodide.runPythonAsync(codeText);
     const out = pyodide.runPython('buf_out.getvalue()');
     const err = pyodide.runPython('buf_err.getvalue()');
-    $out.innerHTML = (out || '') + (err ? ("\\n[stderr]\\n" + err) : '');
+    setOutput((out || '') + (err ? ("\n[stderr]\n" + err) : ''));
     $state.textContent = 'Listo.';
   } catch (e) {
     $state.textContent = 'Error en ejecución';
-    $out.textContent   = '⚠️ ' + String(e);
+    setOutput('⚠️ ' + String(e));
   } finally {
     await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
   }
@@ -237,7 +242,7 @@ async function runPythonFromFlash(code) {
   }
 
   $state.textContent = 'Ejecutando código…';
-  $out.textContent   = '';
+  setOutput('');
 
   try {
     await pyodide.runPythonAsync(`
@@ -249,34 +254,19 @@ sys.stdout, sys.stderr = buf_out, buf_err
     await pyodide.runPythonAsync(code);
     const out = pyodide.runPython("buf_out.getvalue()");
     const err = pyodide.runPython("buf_err.getvalue()");
-    $out.innerHTML = (out || "") + (err ? ("\\n[stderr]\\n" + err) : "");
+    setOutput((out || "") + (err ? ("\n[stderr]\n" + err) : ""));
     $state.textContent = "Listo.";
   } catch (e) {
     $state.textContent = "Error en ejecución";
-    $out.textContent   = "⚠️ " + String(e);
+    setOutput("⚠️ " + String(e));
   } finally {
     await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
   }
 }
 
-// Botón específico para precargar solo pandas
-async function preloadPandas() {
-  if (!pyodide) {
-    $state.textContent = 'Pyodide aún no está listo…';
-    return;
-  }
-  try {
-    // reutilizamos el mismo mecanismo de detección
-    await ensurePackagesForCode("import pandas");
-    $out.textContent = '✅ Librería cargada: pandas';
-  } catch (e) {
-    // ensurePackagesForCode ya muestra el error
-  }
-}
-
 // Asignación de eventos a los botones de la página
-document.getElementById('run').onclick        = run;
-document.getElementById('clear').onclick      = () => { $out.textContent = ''; };
+document.getElementById('run').onclick   = run;
+document.getElementById('clear').onclick = () => { setOutput(''); };
 </script>
 </body>
 </html>
