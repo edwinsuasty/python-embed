@@ -101,23 +101,6 @@ sys.stdout, sys.stderr = buf_out, buf_err
   }
 }
 
-// 👇 Función para que Animate pida cargar pandas
-async function preloadPandas() {
-  if (!pyodide) {
-    $state.textContent = 'Pyodide aún no está listo…';
-    return;
-  }
-  try {
-    $state.textContent = 'Cargando pandas (y dependencias)…';
-    await pyodide.loadPackage(['numpy', 'pandas']);
-    $state.textContent = 'pandas listo.';
-    $out.textContent   = '✅ Librerías cargadas: numpy, pandas';
-  } catch (e) {
-    $state.textContent = 'Error cargando pandas';
-    $out.textContent   = '⚠️ ' + String(e);
-  }
-}
-
 // 👇 Función para que Animate ejecute código Python
 async function runPythonFromFlash(code) {
   if (!pyodide) {
