@@ -44,34 +44,44 @@ small{color:var(--muted)}
 </div>
 
 <script>
-const $state=document.getElementById('state'),
-      $code=document.getElementById('code'),
-      $out=document.getElementById('out');
-const q=(n,d='')=>{
-  const m=location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));
-  return m?decodeURIComponent(m[1].replace(/\+/g,' ')):d;
-};
-const auto=/^(1|true|yes)$/i.test(q('autoeval','1'));
-const initial=q('code',"print('Hola desde Pyodide')\n");
-$code.value=initial;
-let pyodide;
+const $state = document.getElementById('state'),
+      $code  = document.getElementById('code'),
+      $out   = document.getElementById('out');
 
-(async()=>{
-  try{
-    pyodide=await loadPyodide();
-    $state.textContent='Pyodide listo.';
-    if(auto) run();
-  }catch(e){
-    $state.textContent='Error al cargar Pyodide';
-    $out.textContent=String(e);
+const q = (n,d='')=>{
+  const m = location.search.match(new RegExp('[?&]'+n+'=([^&]+)'));
+  return m ? decodeURIComponent(m[1].replace(/\+/g,' ')) : d;
+};
+
+const auto    = /^(1|true|yes)$/i.test(q('autoeval','1'));
+const initial = q('code',"print('Hola desde Pyodide')\n");
+$code.value   = initial;
+
+// ✅ UNA sola variable global
+let pyodide = null;
+
+// Inicializar Pyodide
+(async () => {
+  try {
+    $state.textContent = 'Cargando Pyodide…';
+    pyodide = await loadPyodide();
+    $state.textContent = 'Pyodide listo.';
+    if (auto) run();
+  } catch (e) {
+    $state.textContent = 'Error al cargar Pyodide';
+    $out.textContent   = String(e);
   }
 })();
 
+// Ejecutar el código que está en el textarea (botón "Ejecutar")
 async function run(){
-  if(!pyodide){$state.textContent='Cargando runtime…';return;}
-  $state.textContent='Ejecutando…';
-  $out.textContent='';
-  try{
+  if (!pyodide) {
+    $state.textContent = 'Pyodide aún no está listo…';
+    return;
+  }
+  $state.textContent = 'Ejecutando…';
+  $out.textContent   = '';
+  try {
     await pyodide.runPythonAsync(`
 import sys, io
 _stdout, _stderr = sys.stdout, sys.stderr
@@ -79,48 +89,43 @@ buf_out, buf_err = io.StringIO(), io.StringIO()
 sys.stdout, sys.stderr = buf_out, buf_err
 `);
     await pyodide.runPythonAsync($code.value);
-    const out=pyodide.runPython('buf_out.getvalue()'),
-          err=pyodide.runPython('buf_err.getvalue()');
-    $out.textContent=(out||'')+(err?("\n[stderr]\n"+err):'');
-    $state.textContent='Listo.';
-  }catch(e){
-    $state.textContent='Error en ejecución';
-    $out.textContent='⚠️ '+String(e);
-  }finally{
+    const out = pyodide.runPython('buf_out.getvalue()');
+    const err = pyodide.runPython('buf_err.getvalue()');
+    $out.textContent = (out || '') + (err ? ("\n[stderr]\n" + err) : '');
+    $state.textContent = 'Listo.';
+  } catch (e) {
+    $state.textContent = 'Error en ejecución';
+    $out.textContent   = '⚠️ ' + String(e);
+  } finally {
     await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
   }
 }
 
-let pyodide;
-
-// ... aquí va tu código actual de carga de Pyodide ...
-
+// 👇 Función para que Animate pida cargar pandas
 async function preloadPandas() {
   if (!pyodide) {
-    $state.textContent = "Pyodide aún no está listo…";
+    $state.textContent = 'Pyodide aún no está listo…';
     return;
   }
   try {
-    $state.textContent = "Cargando pandas (y dependencias)…";
-    // Cargar pandas, numpy, etc.
-    await pyodide.loadPackage(["numpy", "pandas"]);
-    $state.textContent = "pandas listo.";
-    $out.textContent = "✅ Librerías cargadas: numpy, pandas";
+    $state.textContent = 'Cargando pandas (y dependencias)…';
+    await pyodide.loadPackage(['numpy', 'pandas']);
+    $state.textContent = 'pandas listo.';
+    $out.textContent   = '✅ Librerías cargadas: numpy, pandas';
   } catch (e) {
-    $state.textContent = "Error cargando pandas";
-    $out.textContent = "⚠️ " + String(e);
+    $state.textContent = 'Error cargando pandas';
+    $out.textContent   = '⚠️ ' + String(e);
   }
 }
 
-// Ejecutar código enviado desde Flash
+// 👇 Función para que Animate ejecute código Python
 async function runPythonFromFlash(code) {
   if (!pyodide) {
-    $state.textContent = "Pyodide aún no está listo…";
+    $state.textContent = 'Pyodide aún no está listo…';
     return;
   }
-  $state.textContent = "Ejecutando código…";
-  $out.textContent = "";
-
+  $state.textContent = 'Ejecutando código…';
+  $out.textContent   = '';
   try {
     await pyodide.runPythonAsync(`
 import sys, io
@@ -135,14 +140,15 @@ sys.stdout, sys.stderr = buf_out, buf_err
     $state.textContent = "Listo.";
   } catch (e) {
     $state.textContent = "Error en ejecución";
-    $out.textContent = "⚠️ " + String(e);
+    $out.textContent   = "⚠️ " + String(e);
   } finally {
     await pyodide.runPythonAsync(`sys.stdout, sys.stderr = _stdout, _stderr`);
   }
 }
 
-document.getElementById('run').onclick=run;
-document.getElementById('clear').onclick=()=>{$out.textContent='';};
+// Botones de la página (no los de Animate)
+document.getElementById('run').onclick   = run;
+document.getElementById('clear').onclick = () => { $out.textContent = ''; };
 </script>
 </body>
 </html>
