@@ -212,7 +212,7 @@ sys.stdout, sys.stderr = buf_out, buf_err
     await pyodide.runPythonAsync(codeText);
     const out = pyodide.runPython('buf_out.getvalue()');
     const err = pyodide.runPython('buf_err.getvalue()');
-    $out.textContent = (out || '') + (err ? ("\\n[stderr]\\n" + err) : '');
+    $out.innerHTML = (out || '') + (err ? ("\\n[stderr]\\n" + err) : '');
     $state.textContent = 'Listo.';
   } catch (e) {
     $state.textContent = 'Error en ejecución';
@@ -249,7 +249,7 @@ sys.stdout, sys.stderr = buf_out, buf_err
     await pyodide.runPythonAsync(code);
     const out = pyodide.runPython("buf_out.getvalue()");
     const err = pyodide.runPython("buf_err.getvalue()");
-    $out.textContent = (out || "") + (err ? ("\\n[stderr]\\n" + err) : "");
+    $out.innerHTML = (out || "") + (err ? ("\\n[stderr]\\n" + err) : "");
     $state.textContent = "Listo.";
   } catch (e) {
     $state.textContent = "Error en ejecución";
