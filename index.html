@@ -36,8 +36,10 @@ small{color:var(--muted)}
       <div style="display:flex;flex-direction:column;gap:8px">
         <button id="run">Ejecutar</button>
         <button id="clear">Limpiar</button>
+        <button id="loadPandas">Cargar pandas</button> <!-- 👈 nuevo -->
       </div>
     </div>
+
     <small id="state">Cargando Pyodide…</small>
     <pre id="out"></pre>
   </div>
@@ -132,6 +134,8 @@ sys.stdout, sys.stderr = buf_out, buf_err
 // Botones de la página (no los de Animate)
 document.getElementById('run').onclick   = run;
 document.getElementById('clear').onclick = () => { $out.textContent = ''; };
+document.getElementById('loadPandas').onclick = preloadPandas; // 👈 nuevo
+
 </script>
 </body>
 </html>
