@@ -129,9 +129,9 @@ const PACKAGE_RULES = [
     packages: ['matplotlib']
   },
   {
-    // scikit-learn
-    test: /(import\s+sklearn|from\s+sklearn)/,
-    packages: ['scikit-learn']
+  // scikit-learn con dependencias
+  test: /(import\s+sklearn|from\s+sklearn)/,
+  packages: ['numpy', 'scipy', 'scikit-learn']
   },
   {
     // scipy (por si algún ejemplo futuro lo usa)
