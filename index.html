@@ -73,7 +73,8 @@ small{color:var(--muted)}
 <body>
 <div class="wrap">
   <div class="panel">
-    <div class="row">
+    <!-- Ocultamos el editor y el botón limpiar, sin eliminarlos -->
+    <div class="row" style="display:none">
       <textarea id="code" placeholder="print('Hola desde Pyodide')"></textarea>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button id="clear">Limpiar</button>
@@ -263,7 +264,7 @@ sys.stdout, sys.stderr = buf_out, buf_err
   }
 }
 
-// Asignación de eventos a los botones de la página
+// Asignación de eventos a los botones de la página (el botón está oculto)
 document.getElementById('clear').onclick = () => { setOutput(''); };
 </script>
 </body>
